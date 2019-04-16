@@ -181,7 +181,11 @@
 			});
 		}
 
-		$("#filter").click(buildChart)
+		$("#filter").click(buildChart);
+
+		function unixToISO8601 (timestamp) {
+			return new Date(timestamp*1000).toString();
+		}
 
 		async function getHistoricalPriceData (start, end, granularity) {
 			const maxRecords = 300;
@@ -190,7 +194,7 @@
 			delta = Math.ceil(delta / granularity) * granularity;
 			let proms = [];
 			for (let t = 0; t < delta; t += inc) {
-				proms.push($.getJSON(`https://api.pro.coinbase.com/products/ETH-USD/candles?start=${start + t}&granularity=${granularity}`));
+				proms.unshift($.getJSON(`https://api.pro.coinbase.com/products/ETH-USD/candles?start=${encodeURIComponent(unixToISO8601(start + t))}&end=${encodeURIComponent(unixToISO8601(start + t + inc))}&granularity=${granularity}`));
 			}
 			return (await Promise.all(proms)).flat().reverse();
 		}
@@ -217,10 +221,12 @@
 			const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
 
 			function getPriceAtTime (timestamp) {
-				let candle = coinbasePrices.find(c => timestamp + granularity < c[0]);
+				let candle = coinbasePrices.find(c => c[0] > timestamp + granularity);
 
 				// Use the last price if we don't have one
-				if (candle == null) candle = coinbasePrices[coinbasePrices.length - 1];
+				if (candle == null) {
+					candle = coinbasePrices[coinbasePrices.length - 1];
+				}
 
 				// Use the high/low average
 				return (candle[1] + candle[2]) / 2;
