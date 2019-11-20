@@ -308,7 +308,9 @@
 			init();
 		}
 
-		$(".sai-dai-toggle").click((el) => {
+		$(".sai-dai-toggle").click((e) => {
+			e.preventDefault();
+
 			if (mode == "DAI") {
 				mode = "SAI";
 				$(".sai-dai-toggle").text("View DAI Charts");
