@@ -40,6 +40,7 @@
 			</div>
 			<div class="price-wrapper">
 				<div class="price-label">Current Price: <span class="price"></span></div>
+				<div><a href="#" class="sai-dai-toggle">View SAI Charts</a></div>
 			</div>
 			<div class="filters">
 				<div>
@@ -54,6 +55,12 @@
 		</div>
 	</div>
 	<script>
+		const urls = {
+			"DAI": "https://dai.stablecoin.science/data/ETHDAI-trades-30d.csv",
+			"SAI": "https://dai.stablecoin.science/data/ETHSAI-trades-30d.csv",
+		};
+
+		let mode = "DAI";
 		let datasets = [];
 		let colors = [
             'rgba(255, 99, 132, 0.3)',
@@ -237,7 +244,7 @@
 		}
 
 		async function init () {
-			const csvString = await $.get("https://dai.stablecoin.science/data/ethdai-trades-30d.csv");
+			const csvString = await $.get(urls[mode]);
 
 			// Poor mans csv parser
 			const rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
@@ -295,6 +302,23 @@
 			buildChart();
 		}
 		init();
+
+		function refreshMode () {
+			$(".title").text(mode + " Trading Charts");
+			init();
+		}
+
+		$(".sai-dai-toggle").click((el) => {
+			if (mode == "DAI") {
+				mode = "SAI";
+				$(".sai-dai-toggle").text("View DAI Charts");
+			} else {
+				mode = "DAI";
+				$(".sai-dai-toggle").text("View SAI Charts");
+			}
+
+			refreshMode();
+		});
 	</script>
 </body>
 </html>
