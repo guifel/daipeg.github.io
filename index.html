@@ -119,19 +119,22 @@
 				};
 			});
 
-			// Add in hourly weighted average
+			// Add in daily weighted average
 			function getWeightedBuckets (size) {
-				let min = alldata[0].timestamp;
-				let max = alldata[alldata.length - 1].timestamp;
+				let halfSize = Math.floor(size/2);
+				let firstTimestamp = alldata[0].timestamp;
+				let lastTimestamp = alldata[alldata.length - 1].timestamp;
+				let max = lastTimestamp - halfSize;									// Get the whole previous 24 hours
+				let min = max - Math.floor((max - firstTimestamp) / size) * size;
 
 				let buckets = [];
 				let extraData = [];
-				for (let t = min; t < max; t += size) {
-					let bucket = alldata.filter(r => r.timestamp >= t && r.timestamp < t + size);
+				for (let t = min; t <= max; t += size) {
+					let bucket = alldata.filter(r => r.timestamp >= t - halfSize && r.timestamp < t + halfSize);
 					if (bucket.length == 0) continue;
 					let volume = bucket.reduce((val, r) => val + r.volume, 0);
 					buckets.push({
-						x: new Date((t + size/2) * 1000),
+						x: new Date(t * 1000),
 						y: bucket.reduce((val, r) => val + r.price * r.volume, 0) / volume
 					});
 					extraData.push({
