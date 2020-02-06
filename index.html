@@ -234,16 +234,8 @@
 			return new Date(timestamp*1000).toString();
 		}
 
-		async function getHistoricalPriceData (start, end, granularity) {
-			const maxRecords = 300;
-			let delta = end - start;
-			let inc = granularity * maxRecords;
-			delta = Math.ceil(delta / granularity) * granularity;
-			let proms = [];
-			for (let t = 0; t < delta; t += inc) {
-				proms.unshift($.getJSON(`https://api.pro.coinbase.com/products/ETH-USD/candles?start=${encodeURIComponent(unixToISO8601(start + t))}&end=${encodeURIComponent(unixToISO8601(start + t + inc))}&granularity=${granularity}`));
-			}
-			return (await Promise.all(proms)).flat().reverse();
+		async function getHistoricalPriceData (start, end) {
+			return (await $.getJSON(`https://data.daipeg.com/candles/coinbase/ethusd?start=${encodeURIComponent(unixToISO8601(start))}&end=${encodeURIComponent(unixToISO8601(end))}`));
 		}
 
 		async function init () {
@@ -262,13 +254,16 @@
 
 			const startTime = parseFloat(rows[0][timestampIndex]);
 			const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
-			const granularity = 3600;
+			const granularity = 60;
 
 			const coinbasePrices = await getHistoricalPriceData(startTime, endTime, granularity);
 			const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
 
+			// Cache the index because the timestamps are both in order
+			let lastIndex = 0;
 			function getPriceAtTime (timestamp) {
-				let candle = coinbasePrices.find(c => c[0] > timestamp + granularity);
+				let candle = coinbasePrices[lastIndex];
+				while (candle != null && candle[0] <= timestamp + granularity) candle = coinbasePrices[++lastIndex];
 
 				// Use the last price if we don't have one
 				if (candle == null) {
