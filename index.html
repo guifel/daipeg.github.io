@@ -56,8 +56,9 @@
 	</div>
 	<script>
 		const urls = {
-			"DAI": "https://dai.stablecoin.science/data/ETHDAI-trades-30d.csv",
-			"SAI": "https://dai.stablecoin.science/data/ETHSAI-trades-30d.csv",
+			//"DAI": "https://data.daipeg.com/trades/ethdai",
+			"DAI": "https://dai.stablecoin.science/data/ETHDAI-trades-90d.csv",
+			"SAI": "https://dai.stablecoin.science/data/ETHSAI-trades-90d.csv",
 		};
 
 		let mode = "DAI";
@@ -239,18 +240,34 @@
 		}
 
 		async function init () {
-			const csvString = await $.get(urls[mode]);
+			let timestampIndex = 0;
+			let pairIndex = 1;
+			let exchangeIndex = 2;
+			let amountIndex = 3;
+			let priceIndex = 4;
+			let rows = [];
+			if (mode == "SAI" || mode == "DAI") {
+				// Legacy mode -- remove this when SAI is done
+				const csvString = await $.get(urls[mode]);
 
-			// Poor mans csv parser
-			const rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
+				// Poor mans csv parser
+				rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
 
-			// Find indicies and dump the first row
-			const timestampIndex = rows[0].indexOf("timestamp");
-			const pairIndex = rows[0].indexOf("pair");
-			const exchangeIndex = rows[0].indexOf("exchange");
-			const amountIndex = rows[0].indexOf("amount");
-			const priceIndex = rows[0].indexOf("price");
-			rows.splice(0, 1);
+				// Find indicies and dump the first row
+				timestampIndex = rows[0].indexOf("timestamp");
+				pairIndex = rows[0].indexOf("pair");
+				exchangeIndex = rows[0].indexOf("exchange");
+				amountIndex = rows[0].indexOf("amount");
+				priceIndex = rows[0].indexOf("price");
+				rows.splice(0, 1);
+			} else {
+				// Round to the nearest hour for better caching
+				const now = new Date();
+				now.setSeconds(0);
+				now.setMinutes(0);
+				const weeksToLoad = 12;
+				const rows = await $.getJSON(urls[mode] + "?start=" + encodeURIComponent(unixToISO8601(now.getTime()/1000 - weeksToLoad*7*24*60*60)) + "&end=" + encodeURIComponent(unixToISO8601(now.getTime()/1000)));
+			}
 
 			const startTime = parseFloat(rows[0][timestampIndex]);
 			const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
