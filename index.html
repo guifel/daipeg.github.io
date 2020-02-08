@@ -101,7 +101,7 @@
 			let filteredData = datasets.map(ex => {
 				const index = datasets.indexOf(ex);
 				const records = ex.records.filter(filterFunc);
-				const radius = records.map(r => Math.sqrt(r.volume) / 25);
+				const radius = records.map(r => Math.sqrt(r.volume) / 40);
 
 				return {
 					label: ex.exchange,
@@ -170,8 +170,8 @@
 					scales: {
 						yAxes: [{
 							ticks: {
-								min: 0.9,
-								max: 1.1
+								min: 0.95,
+								max: 1.05
 							}
 						}],
 						xAxes: [{
