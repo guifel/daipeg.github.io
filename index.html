@@ -29,6 +29,8 @@
 	.label { white-space: nowrap; }
 	.chart-wrapper { flex: 1; }
 	#chart { display: block; }
+	.status { text-align: center; font-weight: bold; font-size: 2rem; }
+	.status-error { color: #F44336; }
 	</style>
 </head>
 <body>
@@ -39,7 +41,7 @@
 				<div class="subtitle">Based off data from <a href="https://dai.stablecoin.science/" target="_blank">https://dai.stablecoin.science/</a></div>
 			</div>
 			<div class="price-wrapper">
-				<div class="price-label">Current Price: <span class="price"></span></div>
+				<div class="price-label">Current Price: <span class="price">Loading...</span></div>
 				<div><a href="#" class="sai-dai-toggle">View SAI Charts</a></div>
 			</div>
 			<div class="filters">
@@ -52,6 +54,7 @@
 		</div>
 		<div class="chart-wrapper">
 			<canvas id="chart"></canvas>
+			<div class="status">Loading...</div>
 		</div>
 	</div>
 	<script>
@@ -240,81 +243,85 @@
 		}
 
 		async function init () {
-			let timestampIndex = 0;
-			let pairIndex = 1;
-			let exchangeIndex = 2;
-			let amountIndex = 3;
-			let priceIndex = 4;
-			let rows = [];
-			if (mode == "SAI" || mode == "DAI") {
-				// Legacy mode -- remove this when SAI is done
-				const csvString = await $.get(urls[mode]);
+			try {
+				let timestampIndex = 0;
+				let pairIndex = 1;
+				let exchangeIndex = 2;
+				let amountIndex = 3;
+				let priceIndex = 4;
+				let rows = [];
+				if (mode == "SAI" || mode == "DAI") {
+					// Legacy mode -- remove this when SAI is done
+					const csvString = await $.get(urls[mode]);
 
-				// Poor mans csv parser
-				rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
+					// Poor mans csv parser
+					rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
 
-				// Find indicies and dump the first row
-				timestampIndex = rows[0].indexOf("timestamp");
-				pairIndex = rows[0].indexOf("pair");
-				exchangeIndex = rows[0].indexOf("exchange");
-				amountIndex = rows[0].indexOf("amount");
-				priceIndex = rows[0].indexOf("price");
-				rows.splice(0, 1);
-			} else {
-				// Round to the nearest hour for better caching
-				const now = new Date();
-				now.setSeconds(0);
-				now.setMinutes(0);
-				const weeksToLoad = 12;
-				const rows = await $.getJSON(urls[mode] + "?start=" + encodeURIComponent(unixToISO8601(now.getTime()/1000 - weeksToLoad*7*24*60*60)) + "&end=" + encodeURIComponent(unixToISO8601(now.getTime()/1000)));
-			}
-
-			const startTime = parseFloat(rows[0][timestampIndex]);
-			const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
-			const granularity = 60;
-
-			const coinbasePrices = await getHistoricalPriceData(startTime, endTime, granularity);
-			const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
-
-			// Cache the index because the timestamps are both in order
-			let lastIndex = 0;
-			function getPriceAtTime (timestamp) {
-				let candle = coinbasePrices[lastIndex];
-				while (candle != null && candle[0] <= timestamp + granularity) candle = coinbasePrices[++lastIndex];
-
-				// Use the last price if we don't have one
-				if (candle == null) {
-					candle = coinbasePrices[coinbasePrices.length - 1];
+					// Find indicies and dump the first row
+					timestampIndex = rows[0].indexOf("timestamp");
+					pairIndex = rows[0].indexOf("pair");
+					exchangeIndex = rows[0].indexOf("exchange");
+					amountIndex = rows[0].indexOf("amount");
+					priceIndex = rows[0].indexOf("price");
+					rows.splice(0, 1);
+				} else {
+					// Round to the nearest hour for better caching
+					const now = new Date();
+					now.setSeconds(0);
+					now.setMinutes(0);
+					const weeksToLoad = 12;
+					const rows = await $.getJSON(urls[mode] + "?start=" + encodeURIComponent(unixToISO8601(now.getTime()/1000 - weeksToLoad*7*24*60*60)) + "&end=" + encodeURIComponent(unixToISO8601(now.getTime()/1000)));
 				}
 
-				// Use the high/low average
-				return (candle[1] + candle[2]) / 2;
+				const startTime = parseFloat(rows[0][timestampIndex]);
+				const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
+				const granularity = 60;
+
+				const coinbasePrices = await getHistoricalPriceData(startTime, endTime, granularity);
+				const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
+
+				// Cache the index because the timestamps are both in order
+				let lastIndex = 0;
+				function getPriceAtTime (timestamp) {
+					let candle = coinbasePrices[lastIndex];
+					while (candle != null && candle[0] <= timestamp + granularity) candle = coinbasePrices[++lastIndex];
+
+					// Use the last price if we don't have one
+					if (candle == null) {
+						candle = coinbasePrices[coinbasePrices.length - 1];
+					}
+
+					// Use the high/low average
+					return (candle[1] + candle[2]) / 2;
+				}
+
+				alldata = rows.map(row => {
+					const timestamp = parseFloat(row[timestampIndex]);
+					const tradePrice = parseFloat(row[priceIndex]);
+					const ethPrice = getPriceAtTime(timestamp);
+					const daiUsdPrice = ethPrice / tradePrice;
+					const volumeUsd = parseFloat(row[amountIndex]) * tradePrice;
+
+					return {
+						exchange: row[exchangeIndex],
+						timestamp,
+						price: daiUsdPrice,
+						volume: volumeUsd
+					};
+				})
+				datasets = exchanges.map(exchange => {
+					return {
+						exchange,
+						records: alldata.filter(row => exchange == row.exchange)
+							
+					};
+				});
+				datasets.sort((a,b) => (a.exchange > b.exchange) ? 1 : ((b.exchange > a.exchange) ? -1 : 0));
+
+				buildChart();
+			} catch (ex) {
+				$(".status, .price").addClass("status-error").text("Network error. Try again later.");
 			}
-
-			alldata = rows.map(row => {
-				const timestamp = parseFloat(row[timestampIndex]);
-				const tradePrice = parseFloat(row[priceIndex]);
-				const ethPrice = getPriceAtTime(timestamp);
-				const daiUsdPrice = ethPrice / tradePrice;
-				const volumeUsd = parseFloat(row[amountIndex]) * tradePrice;
-
-				return {
-					exchange: row[exchangeIndex],
-					timestamp,
-					price: daiUsdPrice,
-					volume: volumeUsd
-				};
-			})
-			datasets = exchanges.map(exchange => {
-				return {
-					exchange,
-					records: alldata.filter(row => exchange == row.exchange)
-						
-				};
-			});
-			datasets.sort((a,b) => (a.exchange > b.exchange) ? 1 : ((b.exchange > a.exchange) ? -1 : 0));
-
-			buildChart();
 		}
 		init();
 
