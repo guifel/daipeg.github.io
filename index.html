@@ -98,6 +98,7 @@
 		}
 
 		function buildChart () {
+			$(".status").remove();
 			let volume = parseFloat($("#volume").val());
 			let filterFunc = r => {
 				return r.volume > volume;
@@ -242,6 +243,21 @@
 			return (await $.getJSON(`https://data.daipeg.com/candles/coinbase/ethusd?start=${encodeURIComponent(unixToISO8601(start))}&end=${encodeURIComponent(unixToISO8601(end))}`));
 		}
 
+		async function fetchTrades (start, end) {
+			// Split into daily blocks (UTC) for much better caching
+			const utcStart = new Date(start);
+			utcStart.setUTCHours(0, 0, 0, 0);
+			let rows = [];
+			while (utcStart.getTime() < end.getTime()) {
+				const tend = new Date(utcStart);
+				tend.setUTCDate(tend.getUTCDate() + 1);
+				rows = rows.concat(await $.getJSON("https://data.daipeg.com/trades/ethdai?start=" + encodeURIComponent(utcStart.toUTCString()) + "&end=" + encodeURIComponent(tend.toUTCString())));
+
+				utcStart.setUTCDate(utcStart.getUTCDate() + 1);
+			}
+			return rows;
+		}
+
 		async function init () {
 			try {
 				let timestampIndex = 0;
@@ -250,7 +266,7 @@
 				let amountIndex = 3;
 				let priceIndex = 4;
 				let rows = [];
-				if (mode == "SAI" || mode == "DAI") {
+				if (mode == "SAI") {
 					// Legacy mode -- remove this when SAI is done
 					const csvString = await $.get(urls[mode]);
 
@@ -265,12 +281,11 @@
 					priceIndex = rows[0].indexOf("price");
 					rows.splice(0, 1);
 				} else {
-					// Round to the nearest hour for better caching
-					const now = new Date();
-					now.setSeconds(0);
-					now.setMinutes(0);
 					const weeksToLoad = 12;
-					const rows = await $.getJSON(urls[mode] + "?start=" + encodeURIComponent(unixToISO8601(now.getTime()/1000 - weeksToLoad*7*24*60*60)) + "&end=" + encodeURIComponent(unixToISO8601(now.getTime()/1000)));
+					const end = new Date();
+					const start = new Date(end);
+					start.setDate(start.getDate() - weeksToLoad*7);
+					rows = await fetchTrades(start, end);
 				}
 
 				const startTime = parseFloat(rows[0][timestampIndex]);
@@ -321,6 +336,7 @@
 				buildChart();
 			} catch (ex) {
 				$(".status, .price").addClass("status-error").text("Network error. Try again later.");
+				throw ex;
 			}
 		}
 		init();
