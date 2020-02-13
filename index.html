@@ -47,7 +47,7 @@
 			<div class="filters">
 				<div>
 					<div class="label">Min Trade Size (USD):</div>
-					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="10000">
+					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="20000">
 				</div>
 				<input type="submit" class="btn btn-primary" id="filter" value="Filter">
 			</div>
@@ -158,7 +158,7 @@
 			filteredData.push(dailyWeighted);
 
 			// Set the price to the last record of the weighted avg
-			$(".price").text(buckets[buckets.length - 1].y.toFixed(4) + " DAI/USD");
+			$(".price").text(buckets[buckets.length - 1].y.toFixed(4) + " DAI/USD (" + niceNumber(dailyWeighted.sourceData[dailyWeighted.sourceData.length - 1].volume) + " USD)");
 
 			if (chart != null) {
 				chart.destroy();
@@ -239,23 +239,34 @@
 			return new Date(timestamp*1000).toString();
 		}
 
-		async function getHistoricalPriceData (start, end) {
-			return (await $.getJSON(`https://data.daipeg.com/candles/coinbase/ethusd?start=${encodeURIComponent(unixToISO8601(start))}&end=${encodeURIComponent(unixToISO8601(end))}`));
-		}
-
-		async function fetchTrades (start, end) {
+		async function fetchUrlPeriod (urlBase, start, end) {
 			// Split into daily blocks (UTC) for much better caching
+			const maxQueries = 10;
 			const utcStart = new Date(start);
 			utcStart.setUTCHours(0, 0, 0, 0);
 			let rows = [];
+			let proms = [];
 			while (utcStart.getTime() < end.getTime()) {
 				const tend = new Date(utcStart);
 				tend.setUTCDate(tend.getUTCDate() + 1);
-				rows = rows.concat(await $.getJSON("https://data.daipeg.com/trades/ethdai?start=" + encodeURIComponent(utcStart.toUTCString()) + "&end=" + encodeURIComponent(tend.toUTCString())));
+				proms.push($.getJSON(urlBase + "?start=" + encodeURIComponent(utcStart.toUTCString()) + "&end=" + encodeURIComponent(tend.toUTCString())));
+				if (proms.length >= maxQueries) {
+					// Wait on queries, push to end result and continue
+					rows = rows.concat((await Promise.all(proms)).flat());
+					proms = [];
+				}
 
 				utcStart.setUTCDate(utcStart.getUTCDate() + 1);
 			}
 			return rows;
+		}
+
+		async function getHistoricalPriceData (start, end) {
+			return await fetchUrlPeriod("https://data.daipeg.com/candles/coinbase/ethusd", start, end);
+		}
+
+		async function fetchTrades (start, end) {
+			return await fetchUrlPeriod("https://data.daipeg.com/trades/ethdai", start, end);
 		}
 
 		async function init () {
@@ -292,7 +303,7 @@
 				const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
 				const granularity = 60;
 
-				const coinbasePrices = await getHistoricalPriceData(startTime, endTime, granularity);
+				const coinbasePrices = await getHistoricalPriceData(new Date(startTime*1000), new Date(endTime*1000));
 				const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
 
 				// Cache the index because the timestamps are both in order
