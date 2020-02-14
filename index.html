@@ -258,6 +258,9 @@
 
 				utcStart.setUTCDate(utcStart.getUTCDate() + 1);
 			}
+			if (proms.length > 0) {
+				rows = rows.concat((await Promise.all(proms)).flat());
+			}
 			return rows;
 		}
 
