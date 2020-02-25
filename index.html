@@ -162,7 +162,7 @@
 			filteredData.push(dailyWeighted);
 
 			// Set the price to the last record of the weighted avg
-			$(".price").text(buckets[buckets.length - 1].y.toFixed(4) + " DAI/USD (" + niceNumber(dailyWeighted.sourceData[dailyWeighted.sourceData.length - 1].volume) + " USD)");
+			$(".price").text(buckets[buckets.length - 1].y.toFixed(4) + " USD/DAI (" + niceNumber(dailyWeighted.sourceData[dailyWeighted.sourceData.length - 1].volume) + " USD)");
 
 			if (chart != null) {
 				chart.destroy();
