@@ -50,7 +50,7 @@
 			<div class="filters">
 				<div>
 					<div class="label">Min Trade Size (USD):</div>
-					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="20000">
+					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="40000">
 				</div>
 				<input type="submit" class="btn btn-primary" id="filter" value="Filter">
 			</div>
@@ -110,7 +110,7 @@
 			let filteredData = datasets.map(ex => {
 				const index = datasets.indexOf(ex);
 				const records = ex.records.filter(filterFunc);
-				const radius = records.map(r => Math.sqrt(r.volume) / 40);
+				const radius = records.map(r => Math.sqrt(r.volume) / 60);
 
 				return {
 					label: ex.exchange,
@@ -122,8 +122,8 @@
 					}),
 					pointRadius: radius,
 					pointHoverRadius: radius,
-                    backgroundColor: colors[index],
-                    borderColor: colors[index],
+                    backgroundColor: colors[index % colors.length],
+                    borderColor: colors[index % colors.length],
                     sourceData: records
 				};
 			});
