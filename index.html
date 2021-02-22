@@ -3,9 +3,9 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>DAI Trading Charts</title>
-	<meta name="description" content="DAI Trading">
-	<meta name="author" content="Sam MacPherson">
+	<title>RAI Trading Charts</title>
+	<meta name="description" content="RAI Trading">
+	<meta name="author" content="From Sam MacPherson, adapted by Guillaume Felley for RAI">
 	<link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700,900" rel="stylesheet">
 	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
@@ -14,6 +14,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.0"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 	<style>
 	* { margin: 0; padding: 0; }
 	html, body { width: 100%; height: 100%; font-family: 'Roboto', sans-serif; }
@@ -39,18 +40,15 @@
 	<div class="wrapper">
 		<div class="controls">
 			<div class="title-wrapper">
-				<div class="title">DAI Trading Charts</div>
-				<div class="subtitle">Based off data from <a href="https://dai.stablecoin.science/" target="_blank">https://dai.stablecoin.science/</a></div>
+				<div class="title">RAI Trading Charts</div>
 			</div>
 			<div class="price-wrapper">
-				<div class="price-label">Current Price: <span class="price">Loading...</span></div>
-				<div><a href="#" class="sai-dai-toggle">View SAI Charts</a></div>
 				<div class="ranges"><a href="#" class="range-option" data-range="1">1D</a> <a href="#" class="range-option" data-range="7">7D</a> <a href="#" class="range-option active" data-range="30">30D</a> <a href="#" class="range-option" data-range="90">90D</a> <a href="#" class="range-option" data-range="0">All</a></div>
 			</div>
 			<div class="filters">
 				<div>
 					<div class="label">Min Trade Size (USD):</div>
-					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="40000">
+					<input class="form-control" id="volume" placeholder="Min Trade Size (USD)" value="5000">
 				</div>
 				<input type="submit" class="btn btn-primary" id="filter" value="Filter">
 			</div>
@@ -61,12 +59,6 @@
 		</div>
 	</div>
 	<script>
-		const urls = {
-			//"DAI": "https://data.daipeg.com/trades/ethdai",
-			"DAI": "https://dai.stablecoin.science/data/ETHDAI-trades-90d.csv",
-			"SAI": "https://dai.stablecoin.science/data/ETHSAI-trades-90d.csv",
-		};
-
 		let mode = "DAI";
 		let rangeInDays = 30;
 		let datasets = [];
@@ -110,7 +102,7 @@
 			let filteredData = datasets.map(ex => {
 				const index = datasets.indexOf(ex);
 				const records = ex.records.filter(filterFunc);
-				const radius = records.map(r => Math.sqrt(r.volume) / 60);
+				const radius = records.map(r => Math.sqrt(r.volume) / 40);
 
 				return {
 					label: ex.exchange,
@@ -128,42 +120,6 @@
 				};
 			});
 
-			// Add in daily weighted average
-			function getWeightedBuckets (size) {
-				let halfSize = Math.floor(size/2);
-				let firstTimestamp = alldata[0].timestamp;
-				let lastTimestamp = alldata[alldata.length - 1].timestamp;
-				let max = lastTimestamp - halfSize;									// Get the whole previous 24 hours
-				let min = max - Math.floor((max - firstTimestamp) / size) * size;
-
-				let buckets = [];
-				let extraData = [];
-				for (let t = min; t <= max; t += size) {
-					let bucket = alldata.filter(r => r.timestamp >= t - halfSize && r.timestamp < t + halfSize);
-					if (bucket.length == 0) continue;
-					let volume = bucket.reduce((val, r) => val + r.volume, 0);
-					buckets.push({
-						x: new Date(t * 1000),
-						y: bucket.reduce((val, r) => val + r.price * r.volume, 0) / volume
-					});
-					extraData.push({
-						volume
-					});
-				}
-				return {
-					label: "Weighted Average (Daily)",
-					showLine: true,
-					data: buckets,
-					sourceData: extraData
-				};
-			}
-			let dailyWeighted = getWeightedBuckets(86400);
-			let buckets = dailyWeighted.data;
-			filteredData.push(dailyWeighted);
-
-			// Set the price to the last record of the weighted avg
-			$(".price").text(buckets[buckets.length - 1].y.toFixed(4) + " USD/DAI (" + niceNumber(dailyWeighted.sourceData[dailyWeighted.sourceData.length - 1].volume) + " USD)");
-
 			if (chart != null) {
 				chart.destroy();
 			}
@@ -179,8 +135,8 @@
 					scales: {
 						yAxes: [{
 							ticks: {
-								min: 0.95,
-								max: 1.05
+								min: 2.75,
+								max: 4.75
 							}
 						}],
 						xAxes: [{
@@ -203,16 +159,6 @@
 								return label;
 							}
 						}
-					},
-					annotation: {
-						annotations: [{
-							type: 'line',
-							mode: 'horizontal',
-							scaleID: 'y-axis-0',
-							value: 1,
-							borderColor: 'rgb(255, 0, 0)',
-							borderWidth: 2
-						}]
 					},
 					plugins: {
 						zoom: {
@@ -272,8 +218,50 @@
 			return await fetchUrlPeriod("https://data.daipeg.com/candles/coinbase/ethusd", start, end);
 		}
 
-		async function fetchTrades (start, end) {
-			return await fetchUrlPeriod("https://data.daipeg.com/trades/ethdai", start, end);
+			async function fetchTrades(start, end) {
+				start = Math.floor(start.getTime() / 1000)
+				end = Math.floor(end.getTime() / 1000)
+				
+				let buys = []
+				let sells = []
+				let skip = 0
+				let swaps
+				do {
+					
+					// ETH amount1
+				    // RAI amount0
+					const query = `
+					{
+						sell:uniswapSwaps(where: {amount0In_gt: 0, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
+							amount1Out
+							amount0In
+							sender
+							createdAt
+							createdAtTransaction
+						}
+						buy:uniswapSwaps(where: {amount0Out_gt: 0, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
+							amount0Out
+							amount1In
+							sender
+							createdAt
+							createdAtTransaction
+						}
+					}`
+					const url = "https://subgraph.reflexer.finance/subgraphs/name/reflexer-labs/rai"
+					const resp = await axios.post(url, JSON.stringify({ query: query }))
+					swaps = resp.data.data
+					console.log(swaps)
+
+					buys.push(...swaps.buy)
+					sells.push(...swaps.sell)
+					skip += 1000
+				} while(swaps.buy.length === 1000 || swaps.sell.length === 1000)
+
+
+				buys = buys.map(x => [Number(x.createdAt), "ETH-RAI", "buy", Number(x.amount1In), Number(x.amount0Out)/Number(x.amount1In)])
+				sells = sells.map(x => [Number(x.createdAt), "ETH-RAI", "sell", Number(x.amount1Out), Number(x.amount0In)/Number(x.amount1Out)])
+				const allSwaps = buys.concat(sells)
+				return allSwaps
 		}
 
 		async function init () {
@@ -284,43 +272,26 @@
 				let amountIndex = 3;
 				let priceIndex = 4;
 				let rows = [];
-				if (mode == "SAI") {
-					// Legacy mode -- remove this when SAI is done
-					const csvString = await $.get(urls[mode]);
 
-					// Poor mans csv parser
-					rows = csvString.split("\r\n").filter(r => r).map(r => r.split(","));
-
-					// Find indicies and dump the first row
-					timestampIndex = rows[0].indexOf("timestamp");
-					pairIndex = rows[0].indexOf("pair");
-					exchangeIndex = rows[0].indexOf("exchange");
-					amountIndex = rows[0].indexOf("amount");
-					priceIndex = rows[0].indexOf("price");
-					rows.splice(0, 1);
+				const end = new Date();
+				let start = new Date(end);
+				if (rangeInDays > 0) {
+					start.setDate(start.getDate() - rangeInDays);
 				} else {
-					const end = new Date();
-					let start = new Date(end);
-					if (rangeInDays > 0) {
-						start.setDate(start.getDate() - rangeInDays);
-					} else {
-						// Show all
-						// Launch of MCD - Nov 18th, 2019 (go one day before)
-						start = new Date(2019, 10, 17);
-					}
-					rows = await fetchTrades(start, end);
+					start = new Date(2021, 2, 17);
 				}
+				rows = await fetchTrades(start, end);
+
 
 				const startTime = parseFloat(rows[0][timestampIndex]);
 				const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
 				const granularity = 60;
 
-				const coinbasePrices = await getHistoricalPriceData(new Date(startTime*1000), new Date(endTime*1000));
+				const coinbasePrices = await getHistoricalPriceData(new Date(startTime * 1000), new Date(endTime * 1000));
 				const exchanges = [...new Set(rows.map(row => row[exchangeIndex]))];
-
 				// Cache the index because the timestamps are both in order
 				let lastIndex = 0;
-				function getPriceAtTime (timestamp) {
+				function getPriceAtTime(timestamp) {
 					let candle = coinbasePrices[lastIndex];
 					while (candle != null && candle[0] <= timestamp + granularity) candle = coinbasePrices[++lastIndex];
 
@@ -354,7 +325,7 @@
 							
 					};
 				});
-				datasets.sort((a,b) => (a.exchange > b.exchange) ? 1 : ((b.exchange > a.exchange) ? -1 : 0));
+				datasets.sort((a,b) => (a.exchange > b.exchange) ? -1 : ((b.exchange > a.exchange) ? 1 : 0));
 
 				buildChart();
 			} catch (ex) {
@@ -368,20 +339,6 @@
 			$(".title").text(mode + " Trading Charts");
 			init();
 		}
-
-		$(".sai-dai-toggle").click((e) => {
-			e.preventDefault();
-
-			if (mode == "DAI") {
-				mode = "SAI";
-				$(".sai-dai-toggle").text("View DAI Charts");
-			} else {
-				mode = "DAI";
-				$(".sai-dai-toggle").text("View SAI Charts");
-			}
-
-			refreshMode();
-		});
 
 		$(".range-option").click((e) => {
 			e.preventDefault();
