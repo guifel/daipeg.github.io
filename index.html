@@ -232,14 +232,14 @@
 				    // RAI amount0
 					const query = `
 					{
-						sell:uniswapSwaps(where: {amount0In_gt: 0, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
+						sell:uniswapSwaps(where: {amount0In_gt: 1000, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
 							amount1Out
 							amount0In
 							sender
 							createdAt
 							createdAtTransaction
 						}
-						buy:uniswapSwaps(where: {amount0Out_gt: 0, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
+						buy:uniswapSwaps(where: {amount0Out_gt: 1000, createdAt_gt: ${start}, createdAt_lte: ${end}}, first: 1000, skip: ${skip}) {
 							amount0Out
 							amount1In
 							sender
