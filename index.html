@@ -250,7 +250,6 @@
 					const url = "https://subgraph.reflexer.finance/subgraphs/name/reflexer-labs/rai"
 					const resp = await axios.post(url, JSON.stringify({ query: query }))
 					swaps = resp.data.data
-					console.log(swaps)
 
 					buys.push(...swaps.buy)
 					sells.push(...swaps.sell)
@@ -258,9 +257,10 @@
 				} while(swaps.buy.length === 1000 || swaps.sell.length === 1000)
 
 
-				buys = buys.map(x => [Number(x.createdAt), "ETH-RAI", "buy", Number(x.amount1In), Number(x.amount0Out)/Number(x.amount1In)])
-				sells = sells.map(x => [Number(x.createdAt), "ETH-RAI", "sell", Number(x.amount1Out), Number(x.amount0In)/Number(x.amount1Out)])
-				const allSwaps = buys.concat(sells)
+				buys = buys.map(x => [Number(x.createdAt), "ETH-RAI", "buy", Number(x.amount1In), Number(x.amount0Out)])
+				sells = sells.map(x => [Number(x.createdAt), "ETH-RAI", "sell", Number(x.amount1Out), Number(x.amount0In)])
+				let allSwaps = buys.concat(sells)
+				allSwaps = allSwaps.sort((a,b) => a[0] - b[0])
 				return allSwaps
 		}
 
@@ -269,8 +269,8 @@
 				let timestampIndex = 0;
 				let pairIndex = 1;
 				let exchangeIndex = 2;
-				let amountIndex = 3;
-				let priceIndex = 4;
+				let etherIndex = 3;
+				let raiIndex = 4;
 				let rows = [];
 
 				const end = new Date();
@@ -281,7 +281,6 @@
 					start = new Date(2021, 2, 17);
 				}
 				rows = await fetchTrades(start, end);
-
 
 				const startTime = parseFloat(rows[0][timestampIndex]);
 				const endTime = parseFloat(rows[rows.length - 1][timestampIndex]);
@@ -306,15 +305,13 @@
 
 				alldata = rows.map(row => {
 					const timestamp = parseFloat(row[timestampIndex]);
-					const tradePrice = parseFloat(row[priceIndex]);
 					const ethPrice = getPriceAtTime(timestamp);
-					const daiUsdPrice = ethPrice / tradePrice;
-					const volumeUsd = parseFloat(row[amountIndex]) * tradePrice;
-
+					const raiUsdPrice = row[etherIndex] * ethPrice / row[raiIndex];
+					const volumeUsd = row[etherIndex] * ethPrice;
 					return {
 						exchange: row[exchangeIndex],
 						timestamp,
-						price: daiUsdPrice,
+						price: raiUsdPrice,
 						volume: volumeUsd
 					};
 				})
